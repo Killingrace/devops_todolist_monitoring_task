@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import permissions, viewsets
-
+from prometheus_client import Counter, generate_latest
 from api.serializers import TodoListSerializer, TodoSerializer, UserSerializer
 from lists.models import Todo, TodoList
 
@@ -10,6 +10,11 @@ import time
 
 startup_time = timezone.now()
 
+REQUEST_COUNT = Counter(
+    'http_requests_total', 
+    'Total HTTP requests', 
+    ['method', 'view']
+)
 
 class IsCreatorOrReadOnly(permissions.BasePermission):
     """
@@ -37,6 +42,10 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = (permissions.IsAdminUser,)
 
+    def dispatch(self, request, *args, **kwargs):
+        REQUEST_COUNT.labels(method=request.method, view='UserViewSet').inc()
+        return super().dispatch(request, *args, **kwargs)
+
 
 class TodoListViewSet(viewsets.ModelViewSet):
 
@@ -63,11 +72,12 @@ class TodoViewSet(viewsets.ModelViewSet):
 
 # Health Check View
 def health(request):
+    REQUEST_COUNT.labels(method='GET', view='health').inc()
     return HttpResponse("Health OK", content_type="text/plain")
 
 # Readiness Check View
 def ready(request):
-    # Calculate elapsed time since startup
+    REQUEST_COUNT.labels(method='GET', view='health').inc()
     elapsed_time = timezone.now() - startup_time
     if elapsed_time.total_seconds() < 30:
         # Return HTTP 500 for the first 30 seconds after startup
