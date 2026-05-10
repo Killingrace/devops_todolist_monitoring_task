@@ -10,6 +10,7 @@ import time
 
 startup_time = timezone.now()
 
+
 class IsCreatorOrReadOnly(permissions.BasePermission):
     """
     Object-level permission to only allow owners of an object to edit it.
